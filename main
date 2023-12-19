@@ -1,0 +1,157 @@
+import pygame
+import math
+import random
+
+pygame.init()
+
+Gravity = 0.00001
+height = 700
+width = 1300
+fps = 30
+frame = 0.1
+my_display = pygame.display.set_mode((width, height))
+pygame.display.update()
+pygame.display.set_caption("This is Gravity Engine")
+clock = pygame.time.Clock()
+state = True
+
+my_display.fill((0,0,0))
+pygame.display.update()
+planets = list()
+
+maxMass = 10000
+minMass = 200
+massScale = (minMass/maxMass)/30
+
+#행성 class를 생성합니다
+class Planet():
+    def __init__(self, x, y, mass, diameter) -> None:
+        self.x = x
+        self.y = y
+        self.mass = mass
+        self.diameter = diameter
+        self.dx = 0
+        self.dy = 0
+
+        self.r = random.randint(0,255)
+        self.g = random.randint(0,255)
+        self.b = random.randint(0,255)
+        self.color = (self.r, self.g, self.b)
+
+    def draw(self):
+        self.x += self.dx*frame*10
+        self.y += self.dy*frame*10
+
+        pygame.draw.circle(my_display, self.color, (self.x+self.dx, height-self.y+self.dy), self.diameter, 0)
+
+
+#행성을 생성합니다
+for i in range (50):
+    my_planet = Planet(random.randint(50, width - 50), random.randint(50, height - 50), random.randint(1000, 10000), random.randint(1, 10))
+    planets.append(my_planet)
+
+#행성의 area를 설정해줍니다 (위치 기준 diameter로 생성된 원)
+def R_area(p, q):
+    area = (p.diameter**2/4)*math.pi+(q.diameter**2/4)*math.pi
+    return area
+
+#충돌하면 새 행성이 생성되도록 정의합니다 (중력에 이끌려서 충돌한 경우. 거리가 0일때 호출됨)
+def collision(p, q):
+    my_mass = p.mass + q.mass
+    x = ((p.x) + (q.x))/2
+    y = ((p.y) + (q.y))/2
+
+    dx = (((p.dx*p.mass)+(q.dx*q.mass))/my_mass)
+    dy = (((p.dy*p.mass)+(q.dy*q.mass))/my_mass)
+
+    d = math.sqrt(R_area(p, q)*4/math.pi)
+
+    cp = Planet(x, y, my_mass, d)
+    cp.dx = dx
+    cp.dy = dy
+    planets.append(cp)
+
+#두 원 사이의 거리를 구합니다 공식은 다음과 같습니다
+    # d = sqrt((x2 - x1)** + (y2 - y1)**)
+def squaredDistance (p, q):
+    sd = (math.dist((p.x, p.y), (q.x, q.y)))**2
+    if sd >= (p.diameter + q.diameter)**2:
+        return sd
+    else :
+        collision(p, q)
+        return 0
+
+#중력은 질량에 비례하게 잡았습니다
+def force(p, q):
+    distance = squaredDistance(p, q)
+    if distance != 0:
+        force = -p.mass*q.mass*Gravity/distance
+        return force
+    else:
+        return 0
+    
+#가속도 함수입니다 (da = dforce/mass)
+def acc(p, q):
+    f = force(p, q)
+    if f != 0:
+        acc = f/p.mass
+        return acc
+    else:
+        return 0
+
+#각도 함수입니다.
+    #두 행성이 바라보는 각도를 만들어줍니다
+def angle(p, q):
+    if p.x == q.x and p.y > q.y:
+        angle = math.pi/2
+    elif p.x == q.x and p.y < q.y:
+        angle = math.pi*3/2
+    else:
+        angle = math.atan((p.y - q.y)/(p.x - q.x))
+    
+    return angle
+
+#x랑 y의 가속도에서 나눠줍니다
+def comp(p, q):
+    a = acc(p, q)
+    if a == 0:
+        planets.remove(p)
+        planets.remove(q)
+    else:
+        if p.x < q.x:
+            p.dx -= a*math.cos(angle(p, q))
+            p.dy -= a*math.sin(angle(p, q))
+        else:
+            p.dx += a*math.cos(angle(p, q))
+            p.dy += a*math.sin(angle(p, q))
+
+
+#while문으로 생성된 행성들이 서로를 잡아당기는 화면을 생성합니다
+count = 0            
+
+while state:
+    count += 1
+    c = count%10
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            state = False
+        
+    #중력 계산 부분
+    for rp in planets:
+        for p in planets:
+            if rp != p:
+                comp(rp, p)
+            if rp not in planets:
+                break
+    #draw
+    if c == 0:
+        my_display.fill((0,0,0))
+        for g in planets:
+            g.draw()
+        pygame.display.update()
+    
+    if count == 10009:
+        state = False
+
+pygame.quit()
